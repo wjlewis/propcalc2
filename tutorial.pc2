@@ -1,0 +1,109 @@
+// Let's define a few axioms about conjunction.
+//
+// If we know `P` and we know `Q`, then we know their conjunction `P & Q`. This
+// is the "Joining Rule" from GEB Chapter VII.
+let join: forall P, Q; P => Q => P & Q = $trust_me;
+
+// From `P & Q` we can conclude `P`. Likewise from `P & Q` we can conclude `Q`.
+// Together these comprise the "Separation Rule"
+let sep_l: forall P, Q; P & Q => P = $trust_me;
+let sep_r: forall P, Q; P & Q => Q = $trust_me;
+
+// These can be used to show that conjunction is commutative: from `P & Q` we
+// can conclude `Q & P`.
+let and_comm: forall P, Q; P & Q => Q & P = <P, Q>{
+    supposing(p_and_q) {
+        // `sep_l<P, Q>(p_and_q)` extracts the proof of `P` from the conjunction
+        // `P & Q`. Likewise with `sep_r<P, Q>(p_and_q)`.
+        let p = sep_l<P, Q>(p_and_q);
+        let q = sep_r<P, Q>(p_and_q);
+
+        // We can check the proposition that a term proves with `$check`:
+        // $check(p);
+
+        join<Q, P>(q, p)
+    }
+};
+
+// Let's add the remaining axioms from GEB Chapter VII ("Rounding Out the List
+// of Rules").
+//
+// "Double-Tilde Rule"
+let neg2: forall P; P => ~~P = $trust_me;
+let un_neg2: forall P; ~~P => P = $trust_me;
+
+// The "Fantasy Rule", "Carry-Over Rule", and "Rule of Detachment" are all
+// "internalized" within propcalc2.
+
+// "Contrapositive Rule"
+let contra: forall P, Q; (P => Q) => ~Q => ~P = $trust_me;
+let un_contra: forall P, Q; (~Q => ~P) => P => Q = $trust_me;
+
+// "De Morgan's Rule"
+let de_morgan: forall P, Q; ~P & ~Q => ~(P | Q) = $trust_me;
+let un_de_morgan: forall P, Q; ~(P | Q) => ~P & ~Q = $trust_me;
+
+// "Switcheroo Rule"
+let switch: forall P, Q; P | Q => ~P => Q = $trust_me;
+let un_switch: forall P, Q; (~P => Q) => P | Q = $trust_me;
+
+// Let's prove the celebrated (and controversial) "principle of the excluded
+// middle".
+let pem: forall P; P | ~P = <P>{
+    // We need to proceed slightly differently than in GEB. Hofstadter's system
+    // uses rewrite rules/"tactics" to reduce terms to equivalent terms; we
+    // don't have this luxury.
+    let lemma: ~P => ~P = supposing(not_p) { not_p };
+    un_switch<P, ~P>(lemma)
+};
+
+// Gantō's Ax:
+//
+// One day Tokusan told his student Gantō, "I have two monks who have been here
+// for many years. Go and examine them." Gantō picked up an ax and went to the
+// hut where the two monks were meditating. He raised the ax, saying, "If you
+// say a word I will cut off your heads; and if you do not say a word, I will
+// also cut off your heads."
+let gantos_ax: forall P, Q; (P => Q) & (~P => Q) => Q = <P, Q>{
+    supposing(h) {
+        // This is a tricky proof! It's helpful to add `$check(..)`s here and
+        // there, and use `$trust_me` when stuck.
+
+        // Sometimes its clearer to use a less-descriptive name, and add an
+        // explicit type ascription.
+        let l: P => Q = sep_l<P => Q, ~P => Q>(h);
+        let r: ~P => Q = sep_r<P => Q, ~P => Q>(h);
+
+        let l_contra: ~Q => ~P = contra<P, Q>(l);
+        let r_contra: ~Q => ~~P = contra<~P, Q>(r);
+
+        let lemma: ~Q => ~(P | ~P) = supposing(not_q) {
+            let h: ~P & ~~P = join<~P, ~~P>(l_contra(not_q), r_contra(not_q));
+            de_morgan<P, ~P>(h)
+        };
+
+        let contra: (P | ~P) => Q = un_contra<P | ~P, Q>(lemma);
+
+        let p_or_not_p: P | ~P = pem<P>;
+
+        contra(p_or_not_p)
+    }
+};
+
+// Another celebrated theorem of classical logic (and an axiom of constructive
+// logic) is "ex falso quodlibet": from a contradiction, anything follows.
+let ex_falso: forall P, Q; P & ~P => Q = <P, Q>{
+    supposing(p_and_not_p) {
+        let p = sep_l<P, ~P>(p_and_not_p);
+        let not_p = sep_r<P, ~P>(p_and_not_p);
+        
+        let lemma1: ~Q => ~~P = supposing(not_q) {
+            neg2<P>(p)
+        };
+        
+        let not_p_implies_q: ~P => Q = un_contra<~P, Q>(lemma1);
+        not_p_implies_q(not_p)
+    }
+};
+
+// TODO Are all the axioms necessary?
